@@ -1,0 +1,17 @@
+[project]
+name = "yellow-taxi-trip-duration"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Kyle Kirts", email = "128338807+kyle-kirts@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+yellow-taxi-trip-duration = "yellow_taxi_trip_duration:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
