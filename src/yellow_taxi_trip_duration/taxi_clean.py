@@ -47,7 +47,7 @@ def rule_counts(df, rules):
     passed = F.lit(True)
     exprs = [F.count(F.lit(1)).alias("raw")]
     for name, keep in rules:
-        keep = F.coalesce(keep, F.lit(False))  # a null condition drops the row, same as filter()
+        keep = F.coalesce(keep, F.lit(False))
         exprs.append(F.sum(F.when(passed & ~keep, 1).otherwise(0)).alias(name))
         passed = passed & keep
     return df.agg(*exprs).first().asDict()
