@@ -2,6 +2,8 @@ from functools import reduce
 
 from pyspark.sql import functions as F
 
+from yellow_taxi.log import log_schema, logger
+
 DROPPED = (
     'Airport_fee', 'congestion_surcharge', 'improvement_surcharge',
     'tolls_amount', 'extra', 'mta_tax', 'tip_amount', 'store_and_fwd_flag',
@@ -53,19 +55,24 @@ def rule_counts(df, rules):
     return df.agg(*exprs).first().asDict()
 
 
-def print_metrics(raw_rows, metrics):
-    print(f"\n{'step':<18}{'removed':>14}{'remaining':>14}{'% of raw':>10}")
-    print(f"{'raw':<18}{'':>14}{raw_rows:>14,}")
+def log_metrics(raw_rows, metrics):
+    lines = [
+        f"{'step':<18}{'removed':>14}{'remaining':>14}{'% of raw':>10}",
+        f"{'raw':<18}{'':>14}{raw_rows:>14,}",
+    ]
     for name, removed, remaining in metrics:
-        print(f"{name:<18}{removed:>14,}{remaining:>14,}{removed / raw_rows:>10.2%}")
+        lines.append(f"{name:<18}{removed:>14,}{remaining:>14,}{removed / raw_rows:>10.2%}")
     final_rows = metrics[-1][2]
     total_removed = raw_rows - final_rows
-    print(f"{'TOTAL':<18}{total_removed:>14,}{final_rows:>14,}{total_removed / raw_rows:>10.2%}")
+    lines.append(f"{'TOTAL':<18}{total_removed:>14,}{final_rows:>14,}{total_removed / raw_rows:>10.2%}")
+    logger.info("--- cleaning rules ---\n%s", "\n".join(lines))
 
 
 def clean(df):
+    log_schema(df, "raw")
     df = df.drop(*DROPPED)
     df = add_label(df)
+    log_schema(df, "drop unused columns + add label")
     rules = [not_null_rule(), *cleaning_rules()]
 
     counts = rule_counts(df, rules)
@@ -75,10 +82,12 @@ def clean(df):
     for name, _ in rules:
         rows -= counts[name]
         metrics.append((name, counts[name], rows))
-    print_metrics(raw_rows, metrics)
+    log_metrics(raw_rows, metrics)
 
     for name, keep in rules:
         df = df.filter(keep)
 
-    return df.drop(*CLEAN_DROP)
+    df = df.drop(*CLEAN_DROP)
+    log_schema(df, "clean")
+    return df
 

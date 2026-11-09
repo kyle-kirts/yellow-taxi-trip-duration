@@ -5,6 +5,8 @@ from pathlib import Path
 from pyspark.sql import functions as F
 from pyspark.sql.types import DoubleType, IntegerType, StringType, StructField, StructType
 
+from yellow_taxi.log import log_schema
+
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 CENTROIDS_PATH = DATA_DIR / "taxi_zone_centroids.csv"
 LOOKUP_PATH = DATA_DIR / "taxi_zone_lookup.csv"
@@ -84,5 +86,9 @@ def add_time_features(df, ts="tpep_pickup_datetime"):
 
 def add_features(df, centroids, lookup):
     df = add_zone_distance(df, centroids)
+    log_schema(df, "add_zone_distance")
     df = add_zone_attributes(df, lookup)
-    return add_time_features(df)
+    log_schema(df, "add_zone_attributes")
+    df = add_time_features(df)
+    log_schema(df, "add_time_features")
+    return df
