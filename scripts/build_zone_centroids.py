@@ -10,7 +10,7 @@ from pathlib import Path
 import shapefile
 from shapely.geometry import shape
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 SHP_PATH = DATA_DIR / "taxi_zones" / "taxi_zones.shp"
 OUT_PATH = DATA_DIR / "taxi_zone_centroids.csv"
 EXPECTED_IDS = set(range(1, 264))

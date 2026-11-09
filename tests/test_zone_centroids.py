@@ -1,6 +1,6 @@
 import csv
 
-from yellow_taxi_trip_duration.features import CENTROIDS_PATH
+from yellow_taxi.taxi_features import CENTROIDS_PATH
 
 
 def read_rows():
