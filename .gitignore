@@ -5,4 +5,6 @@ __pycache__/
 .pytest_cache/
 .env
 
+results/
+
 scratch_work/
