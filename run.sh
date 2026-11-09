@@ -1,22 +1,36 @@
 #!/usr/bin/env bash
-# Usage: ./run.sh <local|cluster> <script> [extra args for the script]
+# Usage: ./run.sh <local|cluster> <job> [extra args for the job]
 #   local             runs with --master local[8]; HDFS paths still resolve via $HADOOP_CONF_DIR
 #   cluster           uses spark.master from $SPARK_CONF_DIR/spark-defaults.conf
+#   <job>             a file in src/yellow_taxi/jobs/ (the .py suffix is optional)
 # Examples:
-#   ./run.sh local src/yellow_taxi_trip_duration/main.py
-#   ./run.sh cluster src/yellow_taxi_trip_duration/main.py
+#   ./run.sh local prepare.py
+#   ./run.sh cluster prepare.py
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
+JOBS_DIR="src/yellow_taxi/jobs"
+
+list_jobs() {
+  for f in "$JOBS_DIR"/*.py; do
+    [[ "$(basename "$f")" == "__init__.py" ]] || echo "  $(basename "$f")"
+  done
+}
+
 MODE="${1:-local}"
 if [[ $# -lt 2 ]]; then
-  echo "Usage: $0 <local|cluster> <script> [extra args]" >&2
+  echo "Usage: $0 <local|cluster> <job> [extra args]" >&2
+  echo "Available jobs:" >&2
+  list_jobs >&2
   exit 1
 fi
-SCRIPT="$2"
+JOB="${2%.py}.py"
+SCRIPT="$JOBS_DIR/$JOB"
 if [[ ! -f "$SCRIPT" ]]; then
-  echo "Script not found: $SCRIPT" >&2
+  echo "Job not found: $SCRIPT" >&2
+  echo "Available jobs:" >&2
+  list_jobs >&2
   exit 1
 fi
 shift 2
@@ -30,4 +44,4 @@ esac
 export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 export PYSPARK_PYTHON="$PWD/.venv/bin/python"
 
-exec .venv/bin/spark-submit "${MASTER_ARGS[@]}" --name PA2 "$SCRIPT" "$@"
+exec .venv/bin/spark-submit "${MASTER_ARGS[@]}" --name "$(basename "$SCRIPT" .py)" "$SCRIPT" "$@"

@@ -1,5 +1,5 @@
 [project]
-name = "yellow-taxi-trip-duration"
+name = "yellow-taxi"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-yellow-taxi-trip-duration = "yellow_taxi_trip_duration:main"
+taxi-prepare = "yellow_taxi.jobs.prepare:main"
 
 [build-system]
 requires = ["uv_build>=0.12.23,<0.13.0"]
@@ -22,3 +22,11 @@ build-backend = "uv_build"
 dev = [
     "pytest>=9.2.0",
 ]
+geo = [
+    "pyshp>=3.1.6",
+    "shapely>=2.2.0",
+]
+
+[tool.pytest.ini_options]
+# PySpark probes for ipykernel; the lab PYTHONPATH exposes a system jupyter_core that warns on import.
+filterwarnings = ["ignore:Jupyter is migrating its paths:DeprecationWarning"]

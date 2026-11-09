@@ -1,6 +1,5 @@
 from functools import reduce
 
-from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
 DROPPED = (
@@ -24,7 +23,6 @@ def add_label(df):
 
 
 def cleaning_rules():
-    """Ordered (name, keep_condition) pairs. A row is kept only if its condition is true."""
     return [
         ("wrong_month",     F.date_format("tpep_pickup_datetime", "yyyy-MM") == F.regexp_extract("source_path", r"(\d{4}-\d{2})\.parquet$", 1)),
         ("duration",        F.col("trip_duration_min").between(1, 240)),
@@ -42,17 +40,14 @@ def cleaning_rules():
 
 
 def not_null_rule():
-    """Same columns as the old dropna: keep a row only if none of them are null."""
     return ("dropna", reduce(lambda a, b: a & b, [F.col(c).isNotNull() for c in (*FEATURE_COLS, *CLEAN_DROP)]))
 
 
 def rule_counts(df, rules):
-    """One Spark job: raw row count plus, for each rule in order, how many rows
-    passed every earlier rule but fail this one."""
     passed = F.lit(True)
     exprs = [F.count(F.lit(1)).alias("raw")]
     for name, keep in rules:
-        keep = F.coalesce(keep, F.lit(False))  # a null condition drops the row, same as filter()
+        keep = F.coalesce(keep, F.lit(False))
         exprs.append(F.sum(F.when(passed & ~keep, 1).otherwise(0)).alias(name))
         passed = passed & keep
     return df.agg(*exprs).first().asDict()
@@ -87,18 +82,3 @@ def clean(df):
 
     return df.drop(*CLEAN_DROP)
 
-
-def main():
-    spark = SparkSession.builder.appName("clean").getOrCreate()
-
-    df = (spark.read.option("mergeSchema", "true")
-          .parquet("/yellow-taxi/2024/", "/yellow-taxi/2025/")
-          .withColumn("source_path", F.input_file_name()))
-
-    df = clean(df)
-
-    spark.stop()
-
-
-if __name__ == "__main__":
-    main()

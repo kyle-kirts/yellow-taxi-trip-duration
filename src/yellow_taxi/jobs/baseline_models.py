@@ -49,7 +49,7 @@ def main():
             print("Reading existing cleaned data:", args.cleaned)
 
         else:
-            from yellow_taxi_trip_duration.taxi_clean import clean
+            from yellow_taxi.taxi_clean import clean
 
             df = (
                 spark.read
