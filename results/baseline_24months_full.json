@@ -1,0 +1,21 @@
+{
+  "cutoff": "2025-10-01",
+  "sample_fraction": 1.0,
+  "train_rows": 58806996,
+  "test_rows": 8608057,
+  "test_rows_with_unseen_pickup_zone": 0,
+  "baselines": {
+    "global_mean": {
+      "MAE_minutes": 9.4803,
+      "RMSE_minutes": 13.7861
+    },
+    "global_median": {
+      "MAE_minutes": 9.1976,
+      "RMSE_minutes": 14.5254
+    },
+    "pickup_zone_mean": {
+      "MAE_minutes": 7.9671,
+      "RMSE_minutes": 11.4349
+    }
+  }
+}
