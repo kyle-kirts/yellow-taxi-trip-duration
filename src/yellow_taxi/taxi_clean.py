@@ -24,9 +24,13 @@ def add_label(df):
     )
 
 
+def file_month():
+    return F.regexp_extract("source_path", r"(\d{4}-\d{2})\.parquet$", 1)
+
+
 def cleaning_rules():
     return [
-        ("wrong_month",     F.date_format("tpep_pickup_datetime", "yyyy-MM") == F.regexp_extract("source_path", r"(\d{4}-\d{2})\.parquet$", 1)),
+        ("wrong_month",     (file_month() == "") | (F.date_format("tpep_pickup_datetime", "yyyy-MM") == file_month())),
         ("duration",        F.col("trip_duration_min").between(1, 240)),
         ("trip_distance",   (F.col("trip_distance") > 0) & (F.col("trip_distance") <= 100)),
         ("speed",           F.try_divide(F.col("trip_distance"), F.col("trip_duration_min") / 60) <= 80),
