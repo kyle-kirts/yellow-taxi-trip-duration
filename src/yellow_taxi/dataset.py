@@ -4,11 +4,15 @@ from yellow_taxi.taxi_features import add_features, load_zone_centroids, load_zo
 from yellow_taxi.taxi_clean import clean
 from yellow_taxi.log import log_schema
 
-RAW_TRAIN_PATHS = ("/yellow-taxi/2024/", "/yellow-taxi/2025/")
+RAW_ROOT = "/yellow-taxi/raw/"
+RAW_TRAIN_PATHS = (RAW_ROOT + "2024/", RAW_ROOT + "2025/")
+# TODO: replace with real test years once raw data is added to hdfs (e.g. 2026 + pre-2024)
+RAW_TEST_PATHS = (RAW_ROOT + "test-placeholder/",)
 PREPARED_ROOT = "/yellow-taxi/prepared/"
 TRAIN_PATH = PREPARED_ROOT + "train/"
 TEST_PATH = PREPARED_ROOT + "test/"
 MODES = ("train", "test")
+RAW = {"train": RAW_TRAIN_PATHS, "test": RAW_TEST_PATHS}
 OUTPUT = {"train": (TRAIN_PATH, "fold"), "test": (TEST_PATH, "year")}
 N_FOLDS = 4
 LABEL = "trip_duration_min"
@@ -43,9 +47,9 @@ def add_year(df):
     return df
 
 
-def build_prepared(spark, raw_paths=RAW_TRAIN_PATHS, mode="train"):
+def build_prepared(spark, mode="train", raw_paths=None):
     check_mode(mode)
-    df = build_features(spark, raw_paths)
+    df = build_features(spark, raw_paths or RAW[mode])
     return add_fold(df) if mode == "train" else add_year(df)
 
 

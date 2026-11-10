@@ -32,6 +32,17 @@ Prepared training data will be found at:
 
 Where each fold=* directory has parquet files containing the samples for that fold of the preprocessed data.
 
+Prepared test data will be found at:
+
+```text
+/yellow-taxi
+└── prepared
+    └── test
+        ├── year=2026
+        │   └── ...
+        └── ...
+```
+
 
 # Running Spark Jobs
 
@@ -41,6 +52,8 @@ you can simply run './run.sh local script.py' to run an application on your loca
 EXAMPLE
 
 Running a cluster prepare job on raw training data:  ./run.sh cluster prepare.py
+
+Running a cluster prepare job on raw test data:  ./run.sh cluster prepare.py --mode test
 
 
 

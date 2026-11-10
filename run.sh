@@ -4,8 +4,8 @@
 #   cluster           uses spark.master from $SPARK_CONF_DIR/spark-defaults.conf
 #   <job>             a file in src/yellow_taxi/jobs/ (the .py suffix is optional)
 # Examples:
-#   ./run.sh local prepare.py                                        # train: 2024-25 -> /yellow-taxi/prepared/train/
-#   ./run.sh cluster prepare.py --mode test --input /yellow-taxi/2026/  # test -> /yellow-taxi/prepared/test/year=2026/
+#   ./run.sh local prepare.py                  # train: /yellow-taxi/raw/2024-25 -> /yellow-taxi/prepared/train/
+#   ./run.sh cluster prepare.py --mode test    # test: hardcoded raw test paths -> /yellow-taxi/prepared/test/year=*/
 set -euo pipefail
 
 cd "$(dirname "$0")"
