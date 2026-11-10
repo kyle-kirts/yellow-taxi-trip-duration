@@ -4,7 +4,7 @@ from yellow_taxi.taxi_features import add_features, load_zone_centroids, load_zo
 from yellow_taxi.taxi_clean import clean
 from yellow_taxi.log import log_schema
 
-RAW_PATHS = ("/yellow-taxi/2024/", "/yellow-taxi/2025/")
+RAW_TRAIN_PATHS = ("/yellow-taxi/2024/", "/yellow-taxi/2025/")
 PREPARED_ROOT = "/yellow-taxi/prepared/"
 TRAIN_PATH = PREPARED_ROOT + "train/"
 TEST_PATH = PREPARED_ROOT + "test/"
@@ -19,13 +19,13 @@ def check_mode(mode):
         raise ValueError(f"mode must be one of {MODES}, got {mode!r}")
 
 
-def read_raw(spark, paths=RAW_PATHS):
+def read_raw(spark, paths=RAW_TRAIN_PATHS):
     return (spark.read.option("mergeSchema", "true")
                  .parquet(*paths)
                  .withColumn("source_path", F.input_file_name()))
 
 
-def build_features(spark, raw_paths=RAW_PATHS):
+def build_features(spark, raw_paths=RAW_TRAIN_PATHS):
     df = clean(read_raw(spark, raw_paths))
     return add_features(df, load_zone_centroids(spark), load_zone_lookup(spark))
 
@@ -43,7 +43,7 @@ def add_year(df):
     return df
 
 
-def build_prepared(spark, raw_paths=RAW_PATHS, mode="train"):
+def build_prepared(spark, raw_paths=RAW_TRAIN_PATHS, mode="train"):
     check_mode(mode)
     df = build_features(spark, raw_paths)
     return add_fold(df) if mode == "train" else add_year(df)

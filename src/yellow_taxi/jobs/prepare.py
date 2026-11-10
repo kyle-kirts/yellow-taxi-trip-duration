@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession
 
-from yellow_taxi.dataset import MODES, OUTPUT, RAW_PATHS, build_prepared, write_prepared
+from yellow_taxi.dataset import MODES, OUTPUT, RAW_TRAIN_PATHS, build_prepared, write_prepared
 from yellow_taxi.log import logger, setup_file_logging
 
 RESULTS_DIR = Path(__file__).resolve().parents[3] / "results"
@@ -18,12 +18,12 @@ def parse_args(argv=None):
                         help="train adds CV folds; test does not (default: train)")
     parser.add_argument("--input", nargs="+", metavar="PATH",
                         help="raw parquet files/directories. "
-                             f"Defaults to {' '.join(RAW_PATHS)} in train mode; required in test mode")
+                             f"Defaults to {' '.join(RAW_TRAIN_PATHS)} in train mode; required in test mode")
     args = parser.parse_args(argv)
     if args.input is None:
         if args.mode == "test":
             parser.error("--input is required with --mode test")
-        args.input = list(RAW_PATHS)
+        args.input = list(RAW_TRAIN_PATHS)
     return args
 
 
