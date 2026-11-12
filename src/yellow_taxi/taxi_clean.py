@@ -4,11 +4,6 @@ from pyspark.sql import functions as F
 
 from yellow_taxi.log import log_schema, logger
 
-DROPPED = (
-    'Airport_fee', 'congestion_surcharge', 'improvement_surcharge',
-    'tolls_amount', 'extra', 'mta_tax', 'tip_amount', 'store_and_fwd_flag',
-    'cbd_congestion_fee',
-)
 CLEAN_DROP = ('total_amount', 'payment_type', 'fare_amount', 'tpep_dropoff_datetime', 'source_path')
 FEATURE_COLS = (
     'tpep_pickup_datetime', 'tpep_dropoff_datetime',
@@ -74,9 +69,8 @@ def log_metrics(raw_rows, metrics):
 
 def clean(df):
     log_schema(df, "raw")
-    df = df.drop(*DROPPED)
     df = add_label(df)
-    log_schema(df, "drop unused columns + add label")
+    log_schema(df, "add label")
     rules = [not_null_rule(), *cleaning_rules()]
 
     counts = rule_counts(df, rules)
