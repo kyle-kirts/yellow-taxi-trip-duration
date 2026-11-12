@@ -1,3 +1,6 @@
+from functools import reduce
+
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
 from yellow_taxi.taxi_features import add_features, load_zone_centroids, load_zone_lookup
@@ -6,8 +9,7 @@ from yellow_taxi.log import log_schema
 
 RAW_ROOT = "/yellow-taxi/raw/"
 RAW_TRAIN_PATHS = (RAW_ROOT + "2024/", RAW_ROOT + "2025/")
-# TODO: replace with real test years once raw data is added to hdfs (e.g. 2026 + pre-2024)
-RAW_TEST_PATHS = (RAW_ROOT + "test-placeholder/",)
+RAW_TEST_PATHS = (RAW_ROOT + "2022/", RAW_ROOT + "2023/", RAW_ROOT + "2026/")
 PREPARED_ROOT = "/yellow-taxi/prepared/"
 TRAIN_PATH = PREPARED_ROOT + "train/"
 TEST_PATH = PREPARED_ROOT + "test/"
@@ -16,6 +18,12 @@ RAW = {"train": RAW_TRAIN_PATHS, "test": RAW_TEST_PATHS}
 OUTPUT = {"train": (TRAIN_PATH, "fold"), "test": (TEST_PATH, "year")}
 N_FOLDS = 4
 LABEL = "trip_duration_min"
+RAW_COLUMNS = {
+    "VendorID": "int", "tpep_pickup_datetime": "timestamp_ntz", "tpep_dropoff_datetime": "timestamp_ntz",
+    "passenger_count": "bigint", "trip_distance": "double", "RatecodeID": "bigint",
+    "PULocationID": "int", "DOLocationID": "int", "payment_type": "bigint",
+    "fare_amount": "double", "total_amount": "double",
+}
 
 
 def check_mode(mode):
@@ -23,10 +31,15 @@ def check_mode(mode):
         raise ValueError(f"mode must be one of {MODES}, got {mode!r}")
 
 
-def read_raw(spark, paths=RAW_TRAIN_PATHS):
-    return (spark.read.option("mergeSchema", "true")
-                 .parquet(*paths)
+def read_raw_file(spark, path):
+    return (spark.read.parquet(path)
+                 .select(*[F.col(c).try_cast(t).alias(c) for c, t in RAW_COLUMNS.items()])
                  .withColumn("source_path", F.input_file_name()))
+
+
+def read_raw(spark, paths=RAW_TRAIN_PATHS):
+    files = sorted(spark.read.parquet(*paths).inputFiles())
+    return reduce(DataFrame.unionByName, [read_raw_file(spark, f) for f in files])
 
 
 def build_features(spark, raw_paths=RAW_TRAIN_PATHS):
