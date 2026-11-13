@@ -8,7 +8,7 @@ from pyspark.sql import SparkSession, functions as F
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--raw-root", default="/yellow-taxi")
+    parser.add_argument("--raw-root", default="/yellow-taxi/raw")
     parser.add_argument(
         "--cleaned",
         default=None,
