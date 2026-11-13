@@ -1,5 +1,6 @@
 import argparse
 import json
+from datetime import date
 from pathlib import Path
 
 from pyspark import StorageLevel
@@ -29,7 +30,18 @@ def main():
         "--output",
         default="results/baseline_metrics.json"
     )
+    parser.add_argument(
+        "--validation-cutoff",
+        default=None,
+        help="Train before this date, validate up to (but excluding) --cutoff"
+    )
     args = parser.parse_args()
+    try:
+        cutoff_date = date.fromisoformat(args.cutoff)
+        if args.validation_cutoff and date.fromisoformat(args.validation_cutoff) >= cutoff_date:
+            parser.error("--validation-cutoff must be earlier than --cutoff")
+    except ValueError:
+        parser.error("Use YYYY-MM-DD for cutoff dates")
 
     if not (0 < args.sample <= 1):
         parser.error("--sample must be in (0, 1]")
@@ -89,15 +101,12 @@ def main():
         )
 
         # STEP 2: Split the data by time
-        cutoff = F.to_timestamp(F.lit(args.cutoff))
-
-        train = df.filter(
-            F.col("tpep_pickup_datetime") < cutoff
-        )
-
-        test = df.filter(
-            F.col("tpep_pickup_datetime") >= cutoff
-        )
+        pickup = F.col("tpep_pickup_datetime")
+        train_end = F.to_timestamp(F.lit(args.validation_cutoff or args.cutoff))
+        train = df.filter(pickup < train_end)
+        test = df.filter(pickup >= train_end)
+        if args.validation_cutoff:
+            test = test.filter(pickup < F.to_timestamp(F.lit(args.cutoff)))
 
         # STEP 3: Compute training statistics
         stats = (
@@ -161,7 +170,7 @@ def main():
                 )
             )
 
-            # STEP 6: Evaluate MAE and RMSE
+            # STEP 6: Evaluate prediction errors
             expressions = [
                 F.count("*").alias("test_rows"),
                 F.sum(
@@ -189,7 +198,10 @@ def main():
 
                     F.sqrt(
                         F.avg(error * error)
-                    ).alias(f"{name}_rmse")
+                    ).alias(f"{name}_rmse"),
+                    F.sum(
+                        (F.abs(error) <= 5.0).cast("long")
+                    ).alias(f"{name}_within_5_minutes")
                 ])
 
             result = (
@@ -206,6 +218,8 @@ def main():
             # STEP 7: Prepare the results
             report = {
                 "cutoff": args.cutoff,
+                "validation_cutoff": args.validation_cutoff,
+                "evaluation_split": "validation" if args.validation_cutoff else "test",
                 "sample_fraction": args.sample,
                 "train_rows": int(overall["n"]),
                 "test_rows": int(result["test_rows"]),
@@ -218,6 +232,10 @@ def main():
                         ),
                         "RMSE_minutes": round(
                             float(result[f"{name}_rmse"]), 4
+                        ),
+                        "within_5_minutes_count": int(result[f"{name}_within_5_minutes"]),
+                        "within_5_minutes_pct": round(
+                            100 * result[f"{name}_within_5_minutes"] / result["test_rows"], 4
                         )
                     }
                     for name in model_names

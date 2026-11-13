@@ -213,6 +213,7 @@ name = "yellow-taxi"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "numpy" },
     { name = "pyspark" },
 ]
 
@@ -226,7 +227,10 @@ geo = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pyspark", specifier = "==4.1.1" }]
+requires-dist = [
+    { name = "numpy", specifier = ">=2.1,<3" },
+    { name = "pyspark", specifier = "==4.1.1" },
+]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=9.2.0" }]
