@@ -7,12 +7,12 @@ from yellow_taxi.taxi_features import add_features, load_zone_centroids, load_zo
 from yellow_taxi.taxi_clean import clean
 from yellow_taxi.log import log_schema
 
-RAW_ROOT = "/yellow-taxi/raw/"
-RAW_TRAIN_PATHS = (RAW_ROOT + "2024/", RAW_ROOT + "2025/")
-RAW_TEST_PATHS = (RAW_ROOT + "2022/", RAW_ROOT + "2023/", RAW_ROOT + "2026/")
-PREPARED_ROOT = "/yellow-taxi/prepared/"
-TRAIN_PATH = PREPARED_ROOT + "train/"
-TEST_PATH = PREPARED_ROOT + "test/"
+RAW_TAXI_PATH = "/yellow-taxi/raw/taxi/"
+RAW_WEATHER_PATH = "/yellow-taxi/raw/weather/"
+RAW_TRAIN_PATHS = (RAW_TAXI_PATH + "2024/", RAW_TAXI_PATH + "2025/")
+RAW_TEST_PATHS = (RAW_TAXI_PATH + "2022/", RAW_TAXI_PATH + "2023/", RAW_TAXI_PATH + "2026/")
+TRAIN_PATH = "/yellow-taxi/prepared/train/"
+TEST_PATH = "/yellow-taxi/prepared/test/"
 MODES = ("train", "test")
 RAW = {"train": RAW_TRAIN_PATHS, "test": RAW_TEST_PATHS}
 OUTPUT = {"train": (TRAIN_PATH, "fold"), "test": (TEST_PATH, "year")}
