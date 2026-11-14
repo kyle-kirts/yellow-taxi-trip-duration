@@ -32,9 +32,9 @@ def cleaning_rules():
         ("passenger_count", F.col("passenger_count").between(1, 6)),
         ("RatecodeID",      F.col("RatecodeID").between(1, 6)),
         ("VendorID",        F.col("VendorID").isin(1, 2, 6, 7)),
-        ("PULocationID",    ~F.col("PULocationID").isin(264, 265)),
-        ("DOLocationID",    ~F.col("DOLocationID").isin(264, 265)),
-        ("payment_type",    ~F.col("payment_type").isin(3, 4, 6)),
+        ("PULocationID",    F.col("PULocationID").between(1, 263)),
+        ("DOLocationID",    F.col("DOLocationID").between(1, 263)),
+        ("payment_type",    F.col("payment_type").isin(1, 2, 5)),
         ("fare_amount",     F.col("fare_amount") > 0),
         ("total_amount",    F.col("total_amount") > 0),
     ]
