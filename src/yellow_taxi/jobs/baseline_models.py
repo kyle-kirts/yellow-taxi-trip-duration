@@ -9,7 +9,8 @@ from pyspark.sql import SparkSession, functions as F
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--raw-root", default="/yellow-taxi/raw/taxi")
+    if args.cleaned is None and args.raw_root is None:
+        args.cleaned = "/yellow-taxi/prepared/train/"
     parser.add_argument(
         "--cleaned",
         default=None,
