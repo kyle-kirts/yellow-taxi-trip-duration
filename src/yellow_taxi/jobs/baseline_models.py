@@ -9,6 +9,7 @@ from pyspark.sql import SparkSession, functions as F
 
 def main():
     parser = argparse.ArgumentParser()
+
     parser.add_argument(
         "--cleaned",
         default="/yellow-taxi/prepared/train/",

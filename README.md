@@ -7,11 +7,15 @@ Preparing training data is hardcoded to expect the following Hadoop directory la
 ```text
 /yellow-taxi
 └── raw
-    ├── 2024
-    │   ├── yellow_tripdata_2024-01.parquet
-    │   └── ...
-    └── 2025
-        ├── yellow_tripdata_2025-01.parquet
+    ├── taxi
+    │   ├── 2024
+    │   │   ├── yellow_tripdata_2024-01.parquet
+    │   │   └── ...
+    │   └── 2025
+    │       ├── yellow_tripdata_2025-01.parquet
+    │       └── ...
+    └── weather
+        ├── GHCNh_USW00094728_2024.psv
         └── ...
 ```
 

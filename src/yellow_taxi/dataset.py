@@ -5,14 +5,16 @@ from pyspark.sql import functions as F
 
 from yellow_taxi.taxi_features import add_features, load_zone_centroids, load_zone_lookup
 from yellow_taxi.taxi_clean import clean
+from yellow_taxi.weather_clean import clean_weather, read_raw_weather
+from yellow_taxi.weather_features import add_weather, hourly_weather
 from yellow_taxi.log import log_schema
 
-RAW_ROOT = "/yellow-taxi/raw/"
-RAW_TRAIN_PATHS = (RAW_ROOT + "2024/", RAW_ROOT + "2025/")
-RAW_TEST_PATHS = (RAW_ROOT + "2022/", RAW_ROOT + "2023/", RAW_ROOT + "2026/")
-PREPARED_ROOT = "/yellow-taxi/prepared/"
-TRAIN_PATH = PREPARED_ROOT + "train/"
-TEST_PATH = PREPARED_ROOT + "test/"
+RAW_TAXI_PATH = "/yellow-taxi/raw/taxi/"
+RAW_WEATHER_PATH = "/yellow-taxi/raw/weather/"
+RAW_TRAIN_PATHS = (RAW_TAXI_PATH + "2024/", RAW_TAXI_PATH + "2025/")
+RAW_TEST_PATHS = (RAW_TAXI_PATH + "2022/", RAW_TAXI_PATH + "2023/", RAW_TAXI_PATH + "2026/")
+TRAIN_PATH = "/yellow-taxi/prepared/train/"
+TEST_PATH = "/yellow-taxi/prepared/test/"
 MODES = ("train", "test")
 RAW = {"train": RAW_TRAIN_PATHS, "test": RAW_TEST_PATHS}
 OUTPUT = {"train": (TRAIN_PATH, "fold"), "test": (TEST_PATH, "year")}
@@ -42,13 +44,19 @@ def read_raw(spark, paths=RAW_TRAIN_PATHS):
     return reduce(DataFrame.unionByName, [read_raw_file(spark, f) for f in files])
 
 
-def build_features(spark, raw_paths=RAW_TRAIN_PATHS):
+def build_weather(spark, raw_path=RAW_WEATHER_PATH):
+    # One hourly table for all years; the same weather serves both train and test.
+    return hourly_weather(clean_weather(read_raw_weather(spark, raw_path)))
+
+
+def build_features(spark, raw_paths=RAW_TRAIN_PATHS, weather_path=RAW_WEATHER_PATH):
     df = clean(read_raw(spark, raw_paths))
-    return add_features(df, load_zone_centroids(spark), load_zone_lookup(spark))
+    df = add_features(df, load_zone_centroids(spark), load_zone_lookup(spark))
+    return add_weather(df, build_weather(spark, weather_path))
 
 
 def add_fold(df):
-    # CV fold by pickup month: 0 = Jan/May/Sep, 1 = Feb/Jun/Oct, 2 = Mar/Jul/Nov, 3 = Apr/Aug/Dec
+    # CV fold by pickup month: 0 = Jan/May/Sep, 1 = Feb/Jun/Oct, 2 = Mar/Jul/Nov, 3 = Apr/Aug/Dec (4 folds)
     df = df.withColumn("fold", ((F.month("tpep_pickup_datetime") - 1) % N_FOLDS).cast("int"))
     log_schema(df, "add fold")
     return df
@@ -60,9 +68,9 @@ def add_year(df):
     return df
 
 
-def build_prepared(spark, mode="train", raw_paths=None):
+def build_prepared(spark, mode="train", raw_paths=None, weather_path=None):
     check_mode(mode)
-    df = build_features(spark, raw_paths or RAW[mode])
+    df = build_features(spark, raw_paths or RAW[mode], weather_path or RAW_WEATHER_PATH)
     return add_fold(df) if mode == "train" else add_year(df)
 
 
@@ -79,3 +87,4 @@ def write_prepared(df, mode="train", out_path=None):
 def load_prepared(spark, mode="train", path=None):
     check_mode(mode)
     return spark.read.parquet(path or OUTPUT[mode][0])
+
