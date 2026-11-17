@@ -9,11 +9,10 @@ from pyspark.sql import SparkSession, functions as F
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--raw-root", default="/yellow-taxi/raw/taxi")
     parser.add_argument(
         "--cleaned",
-        default=None,
-        help="Optional existing cleaned Parquet directory (local or HDFS)"
+        default="/yellow-taxi/prepared/train/",
+        help="Prepared Parquet directory"
     )
     parser.add_argument(
         "--sample",
