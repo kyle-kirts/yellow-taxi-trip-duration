@@ -56,7 +56,7 @@ def build_features(spark, raw_paths=RAW_TRAIN_PATHS, weather_path=RAW_WEATHER_PA
 
 
 def add_fold(df):
-    # CV fold by pickup month: 0 = Jan/May/Sep, 1 = Feb/Jun/Oct, 2 = Mar/Jul/Nov, 3 = Apr/Aug/Dec
+    # CV fold by pickup month: 0 = Jan/May/Sep, 1 = Feb/Jun/Oct, 2 = Mar/Jul/Nov, 3 = Apr/Aug/Dec (4 folds)
     df = df.withColumn("fold", ((F.month("tpep_pickup_datetime") - 1) % N_FOLDS).cast("int"))
     log_schema(df, "add fold")
     return df
