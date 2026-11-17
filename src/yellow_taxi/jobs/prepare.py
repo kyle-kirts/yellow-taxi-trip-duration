@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession
 
-from yellow_taxi.dataset import MODES, OUTPUT, RAW, build_prepared, write_prepared
+from yellow_taxi.dataset import MODES, OUTPUT, RAW, RAW_WEATHER_PATH, build_prepared, write_prepared
 from yellow_taxi.log import logger, setup_file_logging
 
 RESULTS_DIR = Path(__file__).resolve().parents[3] / "results"
@@ -12,7 +12,8 @@ RESULTS_DIR = Path(__file__).resolve().parents[3] / "results"
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        description="Clean and feature engineering of raw taxi parquet files. "
+        description="Clean and feature engineering of raw taxi parquet files, joined with hourly "
+                    f"weather from {RAW_WEATHER_PATH}. "
                     f"train: {' '.join(RAW['train'])} -> {OUTPUT['train'][0]} (by fold); "
                     f"test: {' '.join(RAW['test'])} -> {OUTPUT['test'][0]} (by year)")
     parser.add_argument("--mode", choices=MODES, default="train",
@@ -23,7 +24,7 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     setup_file_logging(RESULTS_DIR / f"prepare_{args.mode}_{datetime.now():%Y%m%d_%H%M%S}.log")
-    logger.info("prepare (%s): reading %s", args.mode, ", ".join(RAW[args.mode]))
+    logger.info("prepare (%s): reading %s and weather %s", args.mode, ", ".join(RAW[args.mode]), RAW_WEATHER_PATH)
     spark = SparkSession.builder.appName(f"prepare-{args.mode}").getOrCreate()
     try:
         out = write_prepared(build_prepared(spark, args.mode), args.mode)

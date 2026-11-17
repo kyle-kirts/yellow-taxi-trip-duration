@@ -5,6 +5,8 @@ from pyspark.sql import functions as F
 
 from yellow_taxi.taxi_features import add_features, load_zone_centroids, load_zone_lookup
 from yellow_taxi.taxi_clean import clean
+from yellow_taxi.weather_clean import clean_weather, read_raw_weather
+from yellow_taxi.weather_features import add_weather, hourly_weather
 from yellow_taxi.log import log_schema
 
 RAW_TAXI_PATH = "/yellow-taxi/raw/taxi/"
@@ -42,9 +44,15 @@ def read_raw(spark, paths=RAW_TRAIN_PATHS):
     return reduce(DataFrame.unionByName, [read_raw_file(spark, f) for f in files])
 
 
-def build_features(spark, raw_paths=RAW_TRAIN_PATHS):
+def build_weather(spark, raw_path=RAW_WEATHER_PATH):
+    # One hourly table for all years; the same weather serves both train and test.
+    return hourly_weather(clean_weather(read_raw_weather(spark, raw_path)))
+
+
+def build_features(spark, raw_paths=RAW_TRAIN_PATHS, weather_path=RAW_WEATHER_PATH):
     df = clean(read_raw(spark, raw_paths))
-    return add_features(df, load_zone_centroids(spark), load_zone_lookup(spark))
+    df = add_features(df, load_zone_centroids(spark), load_zone_lookup(spark))
+    return add_weather(df, build_weather(spark, weather_path))
 
 
 def add_fold(df):
@@ -60,9 +68,9 @@ def add_year(df):
     return df
 
 
-def build_prepared(spark, mode="train", raw_paths=None):
+def build_prepared(spark, mode="train", raw_paths=None, weather_path=None):
     check_mode(mode)
-    df = build_features(spark, raw_paths or RAW[mode])
+    df = build_features(spark, raw_paths or RAW[mode], weather_path or RAW_WEATHER_PATH)
     return add_fold(df) if mode == "train" else add_year(df)
 
 
@@ -79,3 +87,4 @@ def write_prepared(df, mode="train", out_path=None):
 def load_prepared(spark, mode="train", path=None):
     check_mode(mode)
     return spark.read.parquet(path or OUTPUT[mode][0])
+
