@@ -4,7 +4,9 @@ import pytest
 from pyspark.sql.types import (DoubleType, IntegerType, LongType, StringType, StructField,
                                StructType, TimestampNTZType)
 
+from conftest import weather_report, write_weather_psv
 from yellow_taxi.dataset import RAW_COLUMNS, build_prepared, read_raw
+from yellow_taxi.weather_features import WEATHER_FEATURES
 
 PICKUP = datetime(2022, 1, 5, 8, 0)
 DROPOFF = datetime(2022, 1, 5, 8, 20)
@@ -58,7 +60,23 @@ def test_read_raw_mixed_schemas(spark, raw_dirs):
     assert types == {**RAW_COLUMNS, "source_path": "string"}
 
 
-def test_test_mode_adds_year(spark, raw_dirs):
-    df = build_prepared(spark, "test", raw_paths=raw_dirs)
+@pytest.fixture(scope="module")
+def weather_dir(tmp_path_factory):
+    # PICKUP is 08:00 EST = 13:00 UTC, so it joins the report from the 12:00 UTC hour.
+    rows = [weather_report("2022-01-05T12:51:00", temperature=-2.0, precipitation=1.5, visibility=8.0)]
+    return write_weather_psv(tmp_path_factory.mktemp("weather"), rows, year=2022)
+
+
+def test_test_mode_adds_year(spark, raw_dirs, weather_dir):
+    df = build_prepared(spark, "test", raw_paths=raw_dirs, weather_path=weather_dir)
     assert "year" in df.columns and "fold" not in df.columns
     assert sorted(r.year for r in df.select("year").distinct().collect()) == [2022, 2026]
+
+
+def test_prepared_has_weather(spark, raw_dirs, weather_dir):
+    df = build_prepared(spark, "test", raw_paths=raw_dirs, weather_path=weather_dir)
+    assert set(WEATHER_FEATURES) <= set(df.columns) and "weather_hour" not in df.columns
+    rows = df.select("year", "temp_c", "is_raining", "weather_missing").collect()
+    assert len(rows) == 3  # the left join keeps every trip
+    assert {(r.year, r.temp_c, r.is_raining, r.weather_missing) for r in rows} == {
+        (2022, -2.0, 1, 0), (2026, None, None, 1)}
