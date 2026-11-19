@@ -3,44 +3,34 @@
 import argparse
 import json
 import math
-from datetime import date
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from pyspark import StorageLevel
 from pyspark.sql import SparkSession, functions as F
 
+from yellow_taxi.jobs.baseline_models import (
+    SEED, add_data_arguments, read_model_trips, validate_data_arguments,
+)
 from yellow_taxi.linear_regression import (
     LABEL, PREDICTION, linear_estimator, model_feature_inputs, model_feature_names, model_vectors,
 )
 
-DEFAULT_SAMPLE = 0.01
 DEFAULT_LAMBDA = 0.0
 DEFAULT_WEATHER = "on"
-DEFAULT_CUTOFF = "2025-10-01"
-DEFAULT_VALIDATION_CUTOFF = None
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cleaned", default="/yellow-taxi/prepared/train/",
-                        help="Prepared Parquet input with engineered features")
-    parser.add_argument("--sample", type=float, default=DEFAULT_SAMPLE)
+    add_data_arguments(parser)
     parser.add_argument("--reg-param", "--linear-reg-param", "--lambda", type=float, default=DEFAULT_LAMBDA,
                         help="Lambda: 0 for ordinary linear regression, positive for Ridge; train_models.py tunes a grid")
     parser.add_argument("--weather", choices=("on", "off"), default=DEFAULT_WEATHER)
-    parser.add_argument("--cutoff", type=date.fromisoformat, default=DEFAULT_CUTOFF,
-                        help="First pickup date in the final test period")
-    parser.add_argument("--validation-cutoff", type=date.fromisoformat, default=DEFAULT_VALIDATION_CUTOFF,
-                        help="Train before this date and validate until --cutoff (exclusive)")
     parser.add_argument("--output", type=Path, help="Local JSON output path")
     args = parser.parse_args(argv)
-    if not 0 < args.sample <= 1:
-        parser.error("--sample must be in (0, 1]")
+    validate_data_arguments(parser, args)
     if not math.isfinite(args.reg_param) or args.reg_param < 0:
         parser.error("--reg-param must be finite and nonnegative")
-    if args.validation_cutoff and args.validation_cutoff >= args.cutoff:
-        parser.error("--validation-cutoff must precede --cutoff")
     return args
 
 
@@ -69,7 +59,7 @@ def evaluate(predictions, by_rush_hour=False):
 
 def _metrics(summary):
     if summary.rows == 0:
-        raise ValueError("No evaluation trips; check the dates and input data.")
+        raise ValueError("No evaluation trips; check the prepared test root and sample size.")
     variance = summary.duration_variance
     return summary.rows, {
         "MAE_minutes": round(summary.mae, 4),
@@ -80,53 +70,41 @@ def _metrics(summary):
     }
 
 
-def run(spark, args):
-    trips = spark.read.parquet(args.cleaned)
-    weather = args.weather == "on"
-    required = ["tpep_pickup_datetime", "PULocationID", LABEL]
-    columns = list(dict.fromkeys([*required, *model_feature_inputs(weather)]))
+def vectorize(trips, weather, keep=()):
+    columns = list(dict.fromkeys([LABEL, *model_feature_inputs(weather), *keep]))
     missing = sorted(set(columns) - set(trips.columns))
     if missing:
         raise ValueError(f"Missing prepared columns: {', '.join(missing)}. "
                          "Use current prepared data; --weather off needs only taxi features.")
-    if args.sample < 1:
-        trips = trips.sample(False, args.sample, seed=42)
-    trips = (trips.select(*columns)
-             .dropna(subset=required)
-             .filter(F.col(LABEL).between(1, 240)))
-    start = (args.validation_cutoff or args.cutoff).isoformat()
-    cutoff = args.cutoff.isoformat()
-    pickup = F.col("tpep_pickup_datetime")
-    start_ts = F.to_timestamp(F.lit(start))
-    evaluation = trips.filter(pickup >= start_ts)
-    if args.validation_cutoff:
-        evaluation = evaluation.filter(pickup < F.to_timestamp(F.lit(cutoff)))
+    return model_vectors(trips.select(*columns), weather)
 
-    train = model_vectors(trips.filter(pickup < start_ts), weather).persist(StorageLevel.MEMORY_AND_DISK)
+
+def run(spark, args):
+    weather = args.weather == "on"
+    train = vectorize(read_model_trips(spark, args, "train"), weather).persist(StorageLevel.MEMORY_AND_DISK)
     try:
         train_rows = train.count()
         if not train_rows:
-            raise ValueError("No training trips; check the dates and input data.")
+            raise ValueError("No training trips; check the prepared training root and sample size.")
         model = linear_estimator(args.reg_param).fit(train)
     finally:
         train.unpersist()
 
-    rows, metrics = evaluate(model.transform(model_vectors(evaluation, weather)), by_rush_hour=True)
+    evaluation = vectorize(read_model_trips(spark, args, "test"), weather)
+    rows, metrics = evaluate(model.transform(evaluation), by_rush_hour=True)
     return {
         "model": "ordinary_linear_regression" if args.reg_param == 0 else "ridge_regression",
         "reg_param": args.reg_param,
         "lambda": args.reg_param,
         "input": args.cleaned,
         "sample_fraction": args.sample,
-        "sampling_seed": 42,
+        "sampling_seed": SEED,
         "weather": args.weather,
         "train_rows": train_rows,
         "evaluation_rows": rows,
-        "evaluation_split": "validation" if args.validation_cutoff else "test",
-        "train_before": start,
-        "evaluation_from": start,
-        "evaluation_before": cutoff if args.validation_cutoff else None,
-        "cutoff": cutoff,
+        "evaluation_split": "external_test",
+        "test_path": args.test_path,
+        "test_year": args.test_year,
         "metrics": metrics,
         "features": list(model_feature_inputs(weather)),
         "intercept": float(model.intercept),
@@ -141,9 +119,8 @@ def main(argv=None):
         report = run(spark, args)
     finally:
         spark.stop()
-    output = args.output or Path("results") / (
-        f"{report['model']}_{report['evaluation_split']}_lambda{args.reg_param:g}.json"
-    )
+    period = f"prepared_test_{args.test_year or 'all'}"
+    output = args.output or Path("results") / f"{report['model']}_{period}_lambda{args.reg_param:g}.json"
     write_report(report, output)
 
 

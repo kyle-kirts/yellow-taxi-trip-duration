@@ -1,110 +1,67 @@
 import argparse
 import json
-from datetime import date
 from pathlib import Path
 from time import perf_counter
 
 from pyspark import StorageLevel
 from pyspark.sql import SparkSession, functions as F
 
-from yellow_taxi.dataset import TRAIN_PATH
+from yellow_taxi.dataset import TEST_PATH, TRAIN_PATH, load_prepared
+
+SEED = 42
 
 
-DEFAULT_SAMPLE = 0.01
-DEFAULT_CUTOFF = "2025-10-01"
+def add_data_arguments(parser):
+    parser.add_argument("--cleaned", default=TRAIN_PATH, help="Prepared training root with fold partitions")
+    parser.add_argument("--sample", type=float, default=0.01, help="Fraction of each dataset to use (1 = all trips)")
+    parser.add_argument("--test-path", default=TEST_PATH, help="Separate prepared test root")
+    parser.add_argument("--test-year", type=int, help="Score one prepared test year (default: all available years)")
+
+
+def validate_data_arguments(parser, args):
+    if not 0 < args.sample <= 1:
+        parser.error("--sample must be in (0, 1]")
+    if args.test_year is not None and not 1 <= args.test_year <= 9999:
+        parser.error("--test-year must be a valid year")
+
+
+def read_model_trips(spark, args, mode):
+    """Read one prepared root on demand so selection can finish before opening test."""
+    path = args.cleaned if mode == "train" else args.test_path
+    trips = load_prepared(spark, mode=mode, path=path)
+    partition = "fold" if mode == "train" else "year"
+    if partition not in trips.columns:
+        raise ValueError(f"Expected '{partition}' in prepared {mode} root {path}")
+    if mode == "test" and args.test_year is not None:
+        trips = trips.filter(F.col("year") == args.test_year)
+    if args.sample < 1:
+        trips = trips.sample(False, args.sample, seed=SEED)
+    return trips
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--cleaned",
-        default=TRAIN_PATH,
-        help="Prepared Parquet directory"
-    )
-    parser.add_argument(
-        "--sample",
-        type=float,
-        default=DEFAULT_SAMPLE,
-        help="Fraction to test first; use 1.0 for full data"
-    )
-    parser.add_argument(
-        "--cutoff",
-        type=date.fromisoformat,
-        default=date.fromisoformat(DEFAULT_CUTOFF),
-        help="Test on pickups on/after this date"
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path("results/baseline_metrics.json")
-    )
-    parser.add_argument(
-        "--validation-cutoff",
-        type=date.fromisoformat,
-        default=None,
-        help="Train before this date, validate up to (but excluding) --cutoff"
-    )
+    add_data_arguments(parser)
+    parser.add_argument("--output", type=Path, help="Local JSON results file")
     args = parser.parse_args(argv)
-
-    if not (0 < args.sample <= 1):
-        parser.error("--sample must be in (0, 1]")
-    if args.validation_cutoff and args.validation_cutoff >= args.cutoff:
-        parser.error("--validation-cutoff must be earlier than --cutoff")
+    validate_data_arguments(parser, args)
+    if args.output is None:
+        args.output = Path("results") / f"baseline_prepared_test_{args.test_year or 'all'}.json"
     return args
 
 
 def run(spark, args):
-    # STEP 1: Read prepared data
-    df = spark.read.parquet(args.cleaned)
-
-    if args.sample < 1:
-        df = df.sample(False, args.sample, seed=42)
-
-    print("Reading existing cleaned data:", args.cleaned)
-
-    required = [
-        "tpep_pickup_datetime",
-        "PULocationID",
-        "trip_duration_min"
-    ]
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        raise ValueError(
-            f"Missing expected cleaned columns: {missing}"
-        )
-
-    df = (
-        df.select(*required)
-        .dropna(subset=required)
-        .filter(
-            F.col("trip_duration_min").between(1, 240)
-        )
-    )
-
-    # STEP 2: Split the data by time
-    pickup = F.col("tpep_pickup_datetime")
-    train_end = F.to_timestamp(
-        F.lit((args.validation_cutoff or args.cutoff).isoformat())
-    )
-    train = df.filter(pickup < train_end)
-    test = df.filter(pickup >= train_end)
-    if args.validation_cutoff:
-        test = test.filter(
-            pickup < F.to_timestamp(F.lit(args.cutoff.isoformat()))
-        )
-
+    train = read_model_trips(spark, args, "train")
+    test = read_model_trips(spark, args, "test")
     return {
-        "cutoff": args.cutoff.isoformat(),
-        "validation_cutoff": (
-            args.validation_cutoff.isoformat() if args.validation_cutoff else None
-        ),
-        "evaluation_split": "validation" if args.validation_cutoff else "test",
+        "training_input": args.cleaned, "test_path": args.test_path, "test_year": args.test_year,
+        "evaluation_split": "external_test",
         "sample_fraction": args.sample,
         **evaluate_baselines(train, test)
     }
 
 
-def evaluate_baselines(train, test):
+def evaluate_baselines(train, test, *, round_errors=True):
     # STEP 3: Compute training statistics
     started = perf_counter()
     stats = (
@@ -129,7 +86,7 @@ def evaluate_baselines(train, test):
 
         if overall is None or overall["n"] == 0:
             raise ValueError(
-                "No training rows; check the cutoff and data"
+                "No training rows; check the prepared training input and sample size"
             )
 
         fit_seconds = perf_counter() - started
@@ -213,7 +170,7 @@ def evaluate_baselines(train, test):
 
         if result["test_rows"] == 0:
             raise ValueError(
-                "No test rows; check the cutoff and data"
+                "No test rows; check the evaluation input and sample size"
             )
 
         # STEP 7: Prepare the results
@@ -225,12 +182,8 @@ def evaluate_baselines(train, test):
             "baselines_joint_fit_seconds": round(fit_seconds, 3),
             "baselines": {
                 name: {
-                    "MAE_minutes": round(
-                        float(result[f"{name}_mae"]), 4
-                    ),
-                    "RMSE_minutes": round(
-                        float(result[f"{name}_rmse"]), 4
-                    ),
+                    "MAE_minutes": float(result[f"{name}_mae"]),
+                    "RMSE_minutes": float(result[f"{name}_rmse"]),
                     "within_5_minutes_count": int(result[f"{name}_within_5_minutes"]),
                     "within_5_minutes_pct": round(
                         100 * result[f"{name}_within_5_minutes"] / result["test_rows"], 4
@@ -240,6 +193,10 @@ def evaluate_baselines(train, test):
             }
         }
 
+        if round_errors:
+            for score in report["baselines"].values():
+                for metric in ("MAE_minutes", "RMSE_minutes"):
+                    score[metric] = round(score[metric], 4)
         return report
     finally:
         stats.unpersist()
