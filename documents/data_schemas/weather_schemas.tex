@@ -1,0 +1,98 @@
+\documentclass[11pt]{article}
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{labelformat=empty,font={bf,normalsize},skip=6pt}
+\pagestyle{empty}
+\newcommand{\col}[1]{\texttt{#1}}
+
+\begin{document}
+
+\begin{table}[H]
+\centering
+\caption{Raw}
+\begin{tabular}{ll}
+\toprule
+Column & Type \\
+\midrule
+\col{STATION} & string \\
+\col{DATE} & string \\
+\col{precipitation\_Measurement\_Code} & string \\
+\col{temperature} & string \\
+\col{precipitation} & string \\
+\col{visibility} & string \\
+\col{wind\_speed} & string \\
+\col{temperature\_Quality\_Code} & string \\
+\col{temperature\_Source\_Code} & string \\
+\col{temperature\_Report\_Type} & string \\
+\col{precipitation\_Quality\_Code} & string \\
+\col{precipitation\_Source\_Code} & string \\
+\col{precipitation\_Report\_Type} & string \\
+\col{visibility\_Quality\_Code} & string \\
+\col{visibility\_Source\_Code} & string \\
+\col{visibility\_Report\_Type} & string \\
+\col{wind\_speed\_Quality\_Code} & string \\
+\col{wind\_speed\_Source\_Code} & string \\
+\col{wind\_speed\_Report\_Type} & string \\
+\col{pres\_wx\_MW1} & string \\
+\col{pres\_wx\_MW2} & string \\
+\col{pres\_wx\_AU1} & string \\
+\col{pres\_wx\_AU2} & string \\
+\col{pres\_wx\_AW1} & string \\
+\col{pres\_wx\_AW2} & string \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+\begin{table}[H]
+\centering
+\caption{Cleaned}
+\begin{tabular}{ll}
+\toprule
+Column & Type \\
+\midrule
+\col{obs\_utc} & timestamp\_ntz \\
+\col{report\_type} & string \\
+\col{temperature} & double \\
+\col{precipitation} & double \\
+\col{precip\_trace} & boolean \\
+\col{visibility} & double \\
+\col{wind\_speed} & double \\
+\col{pres\_wx\_MW1} & string \\
+\col{pres\_wx\_MW2} & string \\
+\col{pres\_wx\_AU1} & string \\
+\col{pres\_wx\_AU2} & string \\
+\col{pres\_wx\_AW1} & string \\
+\col{pres\_wx\_AW2} & string \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Feature Engineered}
+\begin{tabular}{ll}
+\toprule
+Column & Type \\
+\midrule
+\col{weather\_hour} & timestamp \\
+\col{temp\_c} & double \\
+\col{visibility\_km} & double \\
+\col{wind\_speed\_ms} & double \\
+\col{precip\_mm\_last\_hr} & double \\
+\col{precip\_mm\_last\_3hr} & double \\
+\col{is\_raining} & int \\
+\col{heavy\_rain} & int \\
+\col{is\_snowing} & int \\
+\col{is\_fog} & int \\
+\col{low\_visibility} & int \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
