@@ -1,0 +1,111 @@
+\documentclass[11pt]{article}
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{labelformat=empty,font={bf,normalsize},skip=6pt}
+\pagestyle{empty}
+\newcommand{\col}[1]{\texttt{#1}}
+
+\begin{document}
+
+\begin{table}[H]
+\centering
+\caption{Raw}
+\begin{tabular}{ll}
+\toprule
+Column & Type \\
+\midrule
+\col{VendorID}              & int \\
+\col{tpep\_pickup\_datetime}  & timestamp\_ntz \\
+\col{tpep\_dropoff\_datetime} & timestamp\_ntz \\
+\col{passenger\_count}       & bigint \\
+\col{trip\_distance}         & double \\
+\col{RatecodeID}            & bigint \\
+\col{store\_and\_fwd\_flag}    & string \\
+\col{PULocationID}          & int \\
+\col{DOLocationID}          & int \\
+\col{payment\_type}          & bigint \\
+\col{fare\_amount}           & double \\
+\col{extra}                 & double \\
+\col{mta\_tax}               & double \\
+\col{tip\_amount}            & double \\
+\col{tolls\_amount}          & double \\
+\col{improvement\_surcharge} & double \\
+\col{total\_amount}          & double \\
+\col{congestion\_surcharge}  & double \\
+\col{Airport\_fee}           & double \\
+\col{cbd\_congestion\_fee}    & double \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Cleaned}
+\begin{tabular}{ll}
+\toprule
+Column & Type \\
+\midrule
+\col{VendorID}             & int \\
+\col{tpep\_pickup\_datetime} & timestamp\_ntz \\
+\col{passenger\_count}      & bigint \\
+\col{trip\_distance}        & double \\
+\col{RatecodeID}           & bigint \\
+\col{PULocationID}         & int \\
+\col{DOLocationID}         & int \\
+\col{trip\_duration\_min}    & double \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+
+\begin{table}[H]
+\centering
+\caption{Feature Engineered}
+\begin{tabular}{ll}
+\toprule
+Column & Type \\
+\midrule
+\col{DOLocationID}          & int \\
+\col{PULocationID}          & int \\
+\col{VendorID}              & int \\
+\col{tpep\_pickup\_datetime}  & timestamp\_ntz \\
+\col{passenger\_count}       & bigint \\
+\col{trip\_distance}         & double \\
+\col{RatecodeID}            & bigint \\
+\col{trip\_duration\_min}     & double \\
+\col{zone\_distance\_mi}      & double \\
+\col{pu\_borough}            & string \\
+\col{pu\_service\_zone}       & string \\
+\col{do\_borough}            & string \\
+\col{do\_service\_zone}       & string \\
+\col{same\_zone}             & int \\
+\col{same\_borough}          & int \\
+\col{is\_airport\_trip}       & int \\
+\col{pickup\_hour\_sin}       & double \\
+\col{pickup\_hour\_cos}       & double \\
+\col{pickup\_dow}            & int \\
+\col{pickup\_month}          & int \\
+\col{is\_weekend}            & int \\
+\col{is\_rush\_hour}          & int \\
+\col{temp\_c}                & double \\
+\col{visibility\_km}         & double \\
+\col{wind\_speed\_ms}        & double \\
+\col{precip\_mm\_last\_hr}    & double \\
+\col{precip\_mm\_last\_3hr}   & double \\
+\col{is\_raining}            & int \\
+\col{heavy\_rain}            & int \\
+\col{is\_snowing}            & int \\
+\col{is\_fog}                & int \\
+\col{low\_visibility}        & int \\
+\col{weather\_missing}       & int \\
+\col{fold}                  & int \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
